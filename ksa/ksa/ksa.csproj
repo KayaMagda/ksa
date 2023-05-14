@@ -47,7 +47,9 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="DataAccess.cs" />
-    <Compile Include="Models\ImportData.cs" />
+    <Compile Include="Models\Kunde.cs" />
+    <Compile Include="Models\Objekt.cs" />
+    <Compile Include="Models\ObjektAbfallArt.cs" />
     <Compile Include="Program.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
   </ItemGroup>

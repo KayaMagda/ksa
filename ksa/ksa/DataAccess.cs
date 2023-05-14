@@ -9,6 +9,10 @@ namespace ksa
     /// </summary>
     public class DataAccess
     {
-        public void ImportData(List<ImportData> importData) { };
+        public void InsertData(Dictionary<long, Objekt> kundenUndObjekte)
+        {
+
+        }
+
     }
 }
