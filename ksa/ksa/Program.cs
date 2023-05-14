@@ -50,15 +50,25 @@ internal class Program
         foreach (string filename in filenames)
         {
             XDocument xmlDoc = XDocument.Load(filename);
-            foreach (XElement element in xmlDoc.Descendants("entry"))
+
+
+            Dictionary<long, List<Objekt>> kundenUndObjekte = new Dictionary<long, List<Objekt>>();
+
+            foreach(XElement element in xmlDoc.Descendants("entry"))
             {
-                Console.WriteLine(element.Element("obj_kunde_nr"));
+                long kundenNr = long.Parse(element.Element("obj_kunde_nr").Value);
+                string objektNr = element.Element("obj_nr").Value;
+                if (kundenUndObjekte.ContainsKey(kundenNr))
+
+                {
+
+                    // Falls der Kunde schon da ist: Liste der Objekt holen
+                    // Falls in der Objektliste ein Objekt mit objektNr ist: der ObjektAbfallArt Liste des Objekts eine das entsprechende Objekt hinzufügen
+                    // Falls es noch kein Objekt mit objektNr gibt: Der Objektliste hinzufügen
+                    // Falls der Kunde noch nicht da ist: den Kunden hinzufügen, das Objekt hinzufügen und ObjekAbfallArt hinzufügen
+
+                }
             }
-
-            Dictionary<long, List<Objekt>> kundenUndObjekte = xmlDoc.Descendants("entry").ToDictionary(
-                el => long.Parse(el.Element("obj_kunde_nr").Value),
-                el => returnObjektListe(xmlDoc, long.Parse(el.Element("obj_kunde_nr").Value)));
-
 
             Console.WriteLine(filename + " erfolgreich importiert!");
         }
