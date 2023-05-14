@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Linq;
 
 namespace ksa;
 
@@ -7,7 +8,7 @@ internal class Program
 {
     static void Main(string[] args)
     {
-        string command = Console.ReadLine();
+        string command = args.Count() > 0 ? args[0] : Console.ReadLine();
         switch (command)
         {
             case "-n":
