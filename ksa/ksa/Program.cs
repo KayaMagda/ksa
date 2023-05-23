@@ -54,57 +54,70 @@ internal class Program
 
             Dictionary<long, List<Objekt>> kundenUndObjekte = new Dictionary<long, List<Objekt>>();
 
-            foreach(XElement element in xmlDoc.Descendants("entry"))
+            foreach (XElement element in xmlDoc.Descendants("entry"))
             {
                 long kundenNr = long.Parse(element.Element("obj_kunde_nr").Value);
                 string objektNr = element.Element("obj_nr").Value;
-                if (kundenUndObjekte.ContainsKey(kundenNr))
-
+                if (kundenUndObjekte.TryGetValue(kundenNr, out List<Objekt> kundenObjekte))
                 {
-
-                    // Falls der Kunde schon da ist: Liste der Objekt holen
-                    // Falls in der Objektliste ein Objekt mit objektNr ist: der ObjektAbfallArt Liste des Objekts eine das entsprechende Objekt hinzufügen
-                    // Falls es noch kein Objekt mit objektNr gibt: Der Objektliste hinzufügen
-                    // Falls der Kunde noch nicht da ist: den Kunden hinzufügen, das Objekt hinzufügen und ObjekAbfallArt hinzufügen
+                    Objekt currentObjekt = kundenObjekte.Find((objekt) => objekt.Nr == objektNr);
+                    if (currentObjekt != null)
+                    {
+                        CreateAndAddObjektAbfallArt(element, currentObjekt, objektNr);
+                    }
+                    else
+                    {
+                        Objekt newObjekt = CreateObjekt(element, objektNr, kundenNr);
+                        kundenObjekte.Add(newObjekt);
+                        CreateAndAddObjektAbfallArt(element, newObjekt, newObjekt.Nr);
+                    }
 
                 }
-            }
+                else
+                {
+                    Objekt objekt = CreateObjekt(element, objektNr, kundenNr);
+                    kundenUndObjekte[kundenNr] = new List<Objekt>() { objekt };
+                    CreateAndAddObjektAbfallArt(element, objekt, objektNr);
+                }
 
+            }
             Console.WriteLine(filename + " erfolgreich importiert!");
         }
     }
 
-    static List<Objekt> returnObjektListe(XDocument doc, long kunden_nr)
-    {
-        var objektListe = new List<Objekt>();
-        foreach(var element in doc.Descendants("entry"))
+        static void CreateAndAddObjektAbfallArt(XElement element, Objekt objektToAddTo, string objektNr)
         {
-            long currentKunde = long.Parse(element.Element("obj_kunde_nr").Value);
-            if (currentKunde == kunden_nr)
+            ObjektAbfallArt currentObjektAbfallArt = new ObjektAbfallArt();
+            currentObjektAbfallArt.ObjNr = objektNr;
+            currentObjektAbfallArt.Abfallart = element.Element("abfallart").Value;
+            currentObjektAbfallArt.Volumen = int.Parse(element.Element("volumen").Value);
+            currentObjektAbfallArt.Anzahl = int.Parse(element.Element("anzahl").Value);
+
+            objektToAddTo.ObjektAbfallArt.Add(currentObjektAbfallArt);
+        }
+
+        static Objekt CreateObjekt(XElement element, string objektNr, long kundenNr)
+        {
+            Objekt objektToAdd = new Objekt();
+            objektToAdd.Nr = objektNr;
+            objektToAdd.Kunde_Nr = kundenNr;
+            objektToAdd.Straße = element.Element("obj_str").Value;
+            objektToAdd.HausNr = int.Parse(element.Element("obj_haus_nr").Value);
+            objektToAdd.PLZ = int.Parse(element.Element("obj_plz").Value);
+            objektToAdd.Ort = element.Element("obj_ort").Value;
+
+            return objektToAdd;
+        }
+
+
+        static void JsonImport()
+        {
+            List<string> filenames = new List<string>();
+            foreach (string filename in filenames)
             {
-                Objekt objekt = new Objekt();
-
-                objekt.Nr = element.Element("obj_nr").Value;
-                objekt.Kunde_Nr = long.Parse(element.Element("obj_kunde_nr").Value);
-                objekt.Straße = element.Element("obj_str").Value;
-                objekt.HausNr = int.Parse(element.Element("obj_haus_nr").Value);
-                objekt.PLZ = int.Parse(element.Element("obj_plz").Value);
-                objekt.Ort = element.Element("obj_ort").Value;
-
-                objektListe.Add(objekt);
+                Console.WriteLine(filename + " erfolgreich importiert!");
             }
-        }               
-
-        return objektListe;
-    }
-
-    static void JsonImport()
-    {
-        List<string> filenames = new List<string>();
-        foreach (string filename in filenames)
-        {
-            Console.WriteLine(filename + " erfolgreich importiert!");
         }
-    }
 
 }
+

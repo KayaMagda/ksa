@@ -10,6 +10,6 @@ namespace ksa.Models
         public int HausNr { get; set; }
         public int PLZ { get; set; }
         public string Ort { get; set; }
-        public List<ObjektAbfallArt> ObjektAbfallArt { get; set; }
+        public List<ObjektAbfallArt> ObjektAbfallArt { get; set; } = new List<ObjektAbfallArt>();
     }
 }
