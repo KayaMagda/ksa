@@ -2,8 +2,10 @@
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Runtime.InteropServices;
 using System.Xml.Linq;
 using ksa.Models;
+using Json.Net;
 
 namespace ksa;
 
@@ -13,9 +15,11 @@ internal class Program
 
     static void Main(string[] args)
     {
-        string command = args.Count() > 0 ? args[0] : Console.ReadLine();
+        Console.WriteLine("Willkommen bei der ksa.exe.\nBitte verwenden Sie einen der folgenden Befehle:\n-n \n-csvimp \n-xmlimp \n-jsonimp \n");
+        string command = args.Count() > 0 ? args[0] : Console.ReadLine();       
+
         switch (command)
-        {
+        {            
             case "-n":
                 Console.WriteLine("Annika Schäfer, Marika Lübbers, Kaya Kopp");
                 break;
@@ -32,7 +36,8 @@ internal class Program
                 Console.WriteLine("Unbekannter Befehl. Bekannte Befehle: -n, -csvimp, -xmlimp, -jsonimp");
                 break;
         }
-        Console.WriteLine("Befehl wurde ausgeführt, drücken Sie irgendeine Taste zum Beenden");
+        
+        Console.WriteLine("Befehl wurde ausgeführt, drücken Sie irgendeine Taste zum Beenden"); 
         Console.ReadKey();
     }
 
@@ -112,10 +117,18 @@ internal class Program
 
         static void JsonImport()
         {
-            List<string> filenames = new List<string>();
+            string[] filenames = Directory.GetFiles(_directory, "*.json");
+            
             foreach (string filename in filenames)
             {
-                Console.WriteLine(filename + " erfolgreich importiert!");
+                StreamReader streamReader = new StreamReader(filename);
+                string jsonString = streamReader.ReadToEnd();
+                //Hier noch das Objekt einfügen mit allen Attributen
+                //Bsp.: datamodel m = JsonConvert.DeserializeObject<datamodel>(jsonString);
+
+
+                string filenameWithoutExt = Path.GetFileName(filename);
+                Console.WriteLine(filenameWithoutExt + " erfolgreich importiert!");
             }
         }
 
