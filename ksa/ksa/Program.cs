@@ -86,6 +86,7 @@ internal class Program
                 }
 
             }
+            DataAccess.InsertData(kundenUndObjekte);
             Console.WriteLine(filename + " erfolgreich importiert!");
         }
     }
