@@ -1,15 +1,15 @@
 ﻿using System.Collections.Generic;
+using System.Data.SQLite;
 using System.IO;
 using System.Linq;
 using System.Text;
 using ksa.Models;
-using Microsoft.Data.Sqlite;
 
 namespace ksa
 {
     /// <summary>
-    /// In dieser Klasse sind alle Methoden die auf die Datenbank zugreifen, geht es ums einschreiben 
-    /// sollen alle imports die gleiche Methode zum einschreiben nutzen
+    /// In dieser Klasse sind alle Methoden die auf die Datenbank zugreifen, geht es ums Einschreiben 
+    /// sollen alle imports die gleiche Methode zum Einschreiben nutzen
     /// </summary>
     public class DataAccess
     {
@@ -19,7 +19,8 @@ namespace ksa
         {
             if (!File.Exists(dbFileName))
             {
-                using SqliteConnection connection = new SqliteConnection($"Data Source=skl.db;Version=3;");
+                SQLiteConnection.CreateFile("skl.db");
+                using SQLiteConnection connection = new SQLiteConnection("Data Source=skl.db;Version=3;");
                 connection.Open();
 
                 string query = @"CREATE TABLE Kunde (
@@ -40,34 +41,40 @@ namespace ksa
                                     abfallart VARCHAR(10)
                                                         );
 
+                                INSERT INTO Abfallart (abfallart)
+                                VALUES ('Bio'), ('Papier'), ('Restmüll');
+
                                 CREATE TABLE ObjektAbfallArt (
                                     objekt_nr VARCHAR(15),
-                                    abfallart_id int,
+                                    abfallart string,
                                     volumen int,
                                     anzahl int,
-                                    PRIMARY KEY (objekt_nr, abfallart_id),
+                                    PRIMARY KEY (objekt_nr, abfallart),
                                     FOREIGN KEY (objekt_nr) REFERENCES Objekt (nr),
-                                    FOREIGN KEY (abfallart_id) REFERENCES Aballart (abfallart)
+                                    FOREIGN KEY (abfallart) REFERENCES Abfallart (abfallart)
                                                               );
 
   
                                 ";
+
+                using SQLiteCommand command = new SQLiteCommand(query, connection);
+                command.ExecuteNonQuery();
             }
         }
 
-        private static SqliteConnection GetOpenConnection()
+        private static SQLiteConnection GetOpenConnection()
         {
-            var connection = new SqliteConnection($"Data Source=skl.db;Version=3;");
+            var connection = new SQLiteConnection("Data Source=skl.db;Version=3;");
             connection.Open();
             return connection;
         }
 
         public static void InsertData(Dictionary<long, List<Objekt>> kundenUndObjekte)
         {
-            var query = new StringBuilder("INSERT INTO Kunde (nr) VALUES ");
+            var query = new StringBuilder("INSERT OR IGNORE INTO Kunde (nr) VALUES ");
 
-            var connection = GetOpenConnection();
-            var command = new SqliteCommand(null, connection);
+            using SQLiteConnection connection = GetOpenConnection();
+            using SQLiteCommand command = new SQLiteCommand(null, connection);
 
             List<string> kundenNrToAdd = new List<string>();
             List<string> objekteToAdd = new List<string>();
@@ -76,49 +83,59 @@ namespace ksa
             foreach (var kundenNr in kundenUndObjekte.Keys)
             {
                 kundenNrToAdd.Add("(@" + kundenNr.ToString() + ")");
-                command.Parameters.AddWithValue(kundenNr.ToString(), kundenNr);
+                command.Parameters.AddWithValue("@" + kundenNr.ToString(), kundenNr);
 
                 List<Objekt> kundenObjekte = kundenUndObjekte[kundenNr];
-                foreach (var (objekt, objektIndex) in kundenObjekte.Select((objekt, i) => (objekt, i)))
+                foreach (var objekt in kundenObjekte)
                 {
-                    objekteToAdd.Add($@"(@objektNr{objektIndex}, 
-                                         @kundenNr{objektIndex},
-                                         @str{objektIndex},
-                                         @hausNr{objektIndex},
-                                         @plz{objektIndex},   
-                                         @ort{objektIndex}
+                    objekteToAdd.Add($@"(@objektNr{objekteToAdd.Count}, 
+                                         @kundenNr{objekteToAdd.Count},
+                                         @str{objekteToAdd.Count},
+                                         @hausNr{objekteToAdd.Count},
+                                         @plz{objekteToAdd.Count},   
+                                         @ort{objekteToAdd.Count}
                                          )");
 
-                    command.Parameters.AddWithValue("objektNr" + objektIndex, objekt.Nr);
-                    command.Parameters.AddWithValue("kundenNr" + objektIndex, objekt.Kunde_Nr);
-                    command.Parameters.AddWithValue("str" + objektIndex, objekt.Straße);
-                    command.Parameters.AddWithValue("hausNr" + objektIndex, objekt.HausNr);
-                    command.Parameters.AddWithValue("plz" + objektIndex, objekt.PLZ);
-                    command.Parameters.AddWithValue("ort" + objektIndex, objekt.Ort);
+                    command.Parameters.AddWithValue("@objektNr" + (objekteToAdd.Count - 1), objekt.Nr);
+                    command.Parameters.AddWithValue("@kundenNr" + (objekteToAdd.Count - 1), objekt.Kunde_Nr);
+                    command.Parameters.AddWithValue("@str" + (objekteToAdd.Count - 1), objekt.Straße);
+                    command.Parameters.AddWithValue("@hausNr" + (objekteToAdd.Count - 1), objekt.HausNr);
+                    command.Parameters.AddWithValue("@plz" + (objekteToAdd.Count - 1), objekt.PLZ);
+                    command.Parameters.AddWithValue("@ort" + (objekteToAdd.Count - 1), objekt.Ort);
 
                     List<ObjektAbfallArt> objektAbfallArten = objekt.ObjektAbfallArt;
 
-                    foreach (var (abfallArt, artIndex) in objektAbfallArten.Select((art, i) => (art, i)))
+                    foreach (var abfallArt in objektAbfallArten)
                     {
                         objektAbfallArtenToAdd.Add($@"(
-                                                       @objekt_nr{artIndex},
-                                                       @abfallart{artIndex},
-                                                       @anzahl{artIndex},
-                                                       @volumen{artIndex}
+                                                       @objektAbfallNr{objektAbfallArtenToAdd.Count},
+                                                       @abfallart{objektAbfallArtenToAdd.Count},
+                                                       @anzahl{objektAbfallArtenToAdd.Count},
+                                                       @volumen{objektAbfallArtenToAdd.Count}
                                                        )");
 
-                        command.Parameters.AddWithValue("objektNr" + artIndex, abfallArt.ObjNr);
-                        command.Parameters.AddWithValue("abfallart" + artIndex, abfallArt.Abfallart);
-                        command.Parameters.AddWithValue("anzahl" + artIndex, abfallArt.Anzahl);
-                        command.Parameters.AddWithValue("volumen" + artIndex, abfallArt.Volumen);
+                        command.Parameters.AddWithValue("@objektAbfallNr" + (objektAbfallArtenToAdd.Count -1), abfallArt.ObjNr);
+                        command.Parameters.AddWithValue("@abfallart" + (objektAbfallArtenToAdd.Count -1), abfallArt.Abfallart);
+                        command.Parameters.AddWithValue("@anzahl" + (objektAbfallArtenToAdd.Count -1), abfallArt.Anzahl);
+                        command.Parameters.AddWithValue("@volumen" + (objektAbfallArtenToAdd.Count -1), abfallArt.Volumen);
                     }
                 }
             }
 
             query.AppendLine(string.Join(", ", kundenNrToAdd));
-            query.AppendLine("INSERT INTO Objekt (nr, kunde_nr, str, haus_nr, plz, ort) VALUES ");
+            query.Append(" ;");
+
+            query.AppendLine("INSERT OR IGNORE INTO Objekt (nr, kunde_nr, str, haus_nr, plz, ort) VALUES ");
             query.AppendLine(string.Join(", ", objekteToAdd));
-            query.AppendLine("INSERT INTO ObjektAbfallArt (objekt_nr, abfallart, anzahl, volumen) VALUES ");
+            query.Append(" ;");
+
+            query.AppendLine("INSERT OR IGNORE INTO ObjektAbfallArt (objekt_nr, abfallart, anzahl, volumen) VALUES ");
+            query.AppendLine(string.Join(", ", objektAbfallArtenToAdd));
+            query.Append(" ;");
+
+            command.CommandText = query.ToString();
+
+            command.ExecuteNonQuery();
         }
 
     }
