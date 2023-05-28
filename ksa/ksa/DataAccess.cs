@@ -1,4 +1,5 @@
 ﻿using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Text;
 using ksa.Models;
@@ -12,6 +13,48 @@ namespace ksa
     /// </summary>
     public class DataAccess
     {
+        private static string dbFileName = "skl.db";
+
+        public static void CreateDatabase()
+        {
+            if (!File.Exists(dbFileName))
+            {
+                using SqliteConnection connection = new SqliteConnection($"Data Source=skl.db;Version=3;");
+                connection.Open();
+
+                string query = @"CREATE TABLE Kunde (
+                                    nr bigint Primary Key
+                                                    );
+
+                                  CREATE TABLE Objekt (
+                                    nr VARCHAR(15) Primary KEY,
+                                    kunde_nr bigint,
+                                    str VARCHAR(40),
+                                    haus_nr integer,
+                                    plz int,
+                                    ort VARCHAR(40),
+                                    FOREIGN KEY(kunde_nr) REFERENCES Kunde (nr)
+                                                        );
+                                  
+                                CREATE TABLE Abfallart (
+                                    abfallart VARCHAR(10)
+                                                        );
+
+                                CREATE TABLE ObjektAbfallArt (
+                                    objekt_nr VARCHAR(15),
+                                    abfallart_id int,
+                                    volumen int,
+                                    anzahl int,
+                                    PRIMARY KEY (objekt_nr, abfallart_id),
+                                    FOREIGN KEY (objekt_nr) REFERENCES Objekt (nr),
+                                    FOREIGN KEY (abfallart_id) REFERENCES Aballart (abfallart)
+                                                              );
+
+  
+                                ";
+            }
+        }
+
         private static SqliteConnection GetOpenConnection()
         {
             var connection = new SqliteConnection($"Data Source=skl.db;Version=3;");
