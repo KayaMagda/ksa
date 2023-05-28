@@ -138,5 +138,23 @@ namespace ksa
             command.ExecuteNonQuery();
         }
 
+        public List<StickerData> GetStickerData()
+        {
+            List<StickerData> data = new List<StickerData>();
+
+            string query = @"SELECT o.nr, 
+                                    o.str, 
+                                    o.haus_nr,
+                                    o.plz,
+                                    o.ort,
+                                    a.abfallart,
+                                    a.volumen,
+                                    a.anzahl
+                            FROM
+                                Objekt o
+                            JOIN ObjektAbfallArt a ON o.nr = a.objekt_nr";
+            return data;
+        }
+
     }
 }
