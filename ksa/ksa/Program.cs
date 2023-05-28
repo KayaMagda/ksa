@@ -5,7 +5,8 @@ using System.Linq;
 using System.Runtime.InteropServices;
 using System.Xml.Linq;
 using ksa.Models;
-using Json.Net;
+using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
 
 namespace ksa;
 
@@ -16,10 +17,10 @@ internal class Program
     static void Main(string[] args)
     {
         Console.WriteLine("Willkommen bei der ksa.exe.\nBitte verwenden Sie einen der folgenden Befehle:\n-n \n-csvimp \n-xmlimp \n-jsonimp \n");
-        string command = args.Count() > 0 ? args[0] : Console.ReadLine();       
+        string command = args.Count() > 0 ? args[0] : Console.ReadLine();
 
         switch (command)
-        {            
+        {
             case "-n":
                 Console.WriteLine("Annika Schäfer, Marika Lübbers, Kaya Kopp");
                 break;
@@ -36,8 +37,8 @@ internal class Program
                 Console.WriteLine("Unbekannter Befehl. Bekannte Befehle: -n, -csvimp, -xmlimp, -jsonimp");
                 break;
         }
-        
-        Console.WriteLine("Befehl wurde ausgeführt, drücken Sie irgendeine Taste zum Beenden"); 
+
+        Console.WriteLine("Befehl wurde ausgeführt, drücken Sie irgendeine Taste zum Beenden");
         Console.ReadKey();
     }
 
@@ -91,47 +92,110 @@ internal class Program
         }
     }
 
-        static void CreateAndAddObjektAbfallArt(XElement element, Objekt objektToAddTo, string objektNr)
-        {
-            ObjektAbfallArt currentObjektAbfallArt = new ObjektAbfallArt();
-            currentObjektAbfallArt.ObjNr = objektNr;
-            currentObjektAbfallArt.Abfallart = element.Element("abfallart").Value;
-            currentObjektAbfallArt.Volumen = int.Parse(element.Element("volumen").Value);
-            currentObjektAbfallArt.Anzahl = int.Parse(element.Element("anzahl").Value);
+    static void CreateAndAddObjektAbfallArt(XElement element, Objekt objektToAddTo, string objektNr)
+    {
+        ObjektAbfallArt currentObjektAbfallArt = new ObjektAbfallArt();
+        currentObjektAbfallArt.ObjNr = objektNr;
+        currentObjektAbfallArt.Abfallart = element.Element("abfallart").Value;
+        currentObjektAbfallArt.Volumen = int.Parse(element.Element("volumen").Value);
+        currentObjektAbfallArt.Anzahl = int.Parse(element.Element("anzahl").Value);
 
-            objektToAddTo.ObjektAbfallArt.Add(currentObjektAbfallArt);
+        objektToAddTo.ObjektAbfallArt.Add(currentObjektAbfallArt);
+    }
+
+    static Objekt CreateObjekt(XElement element, string objektNr, long kundenNr)
+    {
+        Objekt objektToAdd = new Objekt();
+        objektToAdd.Nr = objektNr;
+        objektToAdd.Kunde_Nr = kundenNr;
+        objektToAdd.Straße = element.Element("obj_str").Value;
+        objektToAdd.HausNr = int.Parse(element.Element("obj_haus_nr").Value);
+        objektToAdd.PLZ = int.Parse(element.Element("obj_plz").Value);
+        objektToAdd.Ort = element.Element("obj_ort").Value;
+
+        return objektToAdd;
+    }
+
+
+    static void JsonImport()
+    {
+        string[] filenames = Directory.GetFiles(_directory, "*.json");
+
+        foreach (string filename in filenames)
+        {
+            StreamReader streamReader = new StreamReader(filename);
+            string jsonString = streamReader.ReadToEnd();
+
+            Dictionary<long, List<Objekt>> kundenUndObjekte = new Dictionary<long, List<Objekt>>();            
+
+            var jsonArray = JArray.Parse(jsonString);
+
+            int index = 0;
+
+            foreach (var data in jsonArray)
+            {
+                long kundenNr = (long)data["obj_kunde_nr"];
+                string objektNr = (string)data["obj_nr"];  
+                
+
+                if(kundenUndObjekte.TryGetValue(kundenNr, out List<Objekt> kundenObjekte))
+                {
+                    Objekt currentObjekt = kundenObjekte.Find((objekt) => objekt.Nr == objektNr);
+                    if (currentObjekt != null)
+                    {                        
+                        JSONCreatandAddAbfallart(jsonArray, currentObjekt, objektNr, index);
+                    }
+                    else
+                    {
+                        Objekt newObjekt = JSONCreateObjekt(jsonArray, objektNr, kundenNr, index);
+                        kundenObjekte.Add(newObjekt);
+                        JSONCreatandAddAbfallart(jsonArray, newObjekt, newObjekt.Nr, index);
+                    }
+
+                }
+                else
+                {
+                    Objekt objekt = JSONCreateObjekt(jsonArray, objektNr, kundenNr, index);
+                    kundenUndObjekte[kundenNr] = new List<Objekt>() { objekt };
+                    JSONCreatandAddAbfallart(jsonArray, objekt, objektNr, index);
+                }
+
+                index++;
+            }
+            DataAccess.InsertData(kundenUndObjekte);
+            string filenameWithoutExt = Path.GetFileName(filename);
+            Console.WriteLine(filenameWithoutExt + " erfolgreich importiert!");
         }
 
-        static Objekt CreateObjekt(XElement element, string objektNr, long kundenNr)
-        {
+    }    
+
+    static void JSONCreatandAddAbfallart(JArray jsonArray, Objekt objektToAddTo, string objektNr, int index)
+    {        
+            ObjektAbfallArt currentObjektAbfallArt = new ObjektAbfallArt();
+            currentObjektAbfallArt.ObjNr = objektNr;
+            currentObjektAbfallArt.Abfallart = (string)jsonArray[index]["abfallart"];
+            currentObjektAbfallArt.Volumen = (int)jsonArray[index]["volumen"];
+            currentObjektAbfallArt.Anzahl = (int)jsonArray[index]["anzahl"];
+
+            objektToAddTo.ObjektAbfallArt.Add(currentObjektAbfallArt);        
+    }
+
+    static Objekt JSONCreateObjekt(JArray jsonArray, string objektNr, long kundenNr, int index)
+    {
+        
             Objekt objektToAdd = new Objekt();
             objektToAdd.Nr = objektNr;
             objektToAdd.Kunde_Nr = kundenNr;
-            objektToAdd.Straße = element.Element("obj_str").Value;
-            objektToAdd.HausNr = int.Parse(element.Element("obj_haus_nr").Value);
-            objektToAdd.PLZ = int.Parse(element.Element("obj_plz").Value);
-            objektToAdd.Ort = element.Element("obj_ort").Value;
+            objektToAdd.Straße = (string)jsonArray[index]["obj_str"];
+
+            objektToAdd.HausNr = (int)jsonArray[index]["obj_haus_nr"];
+            objektToAdd.PLZ = (int)jsonArray[index]["obj_plz"];
+            objektToAdd.Ort = (string)jsonArray[index]["obj_ort"];
 
             return objektToAdd;
-        }
+        
 
-
-        static void JsonImport()
-        {
-            string[] filenames = Directory.GetFiles(_directory, "*.json");
-            
-            foreach (string filename in filenames)
-            {
-                StreamReader streamReader = new StreamReader(filename);
-                string jsonString = streamReader.ReadToEnd();
-                //Hier noch das Objekt einfügen mit allen Attributen
-                //Bsp.: datamodel m = JsonConvert.DeserializeObject<datamodel>(jsonString);
-
-
-                string filenameWithoutExt = Path.GetFileName(filename);
-                Console.WriteLine(filenameWithoutExt + " erfolgreich importiert!");
-            }
-        }
+    }
 
 }
 
