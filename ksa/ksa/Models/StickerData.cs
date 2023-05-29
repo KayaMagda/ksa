@@ -1,6 +1,6 @@
 ﻿namespace ksa.Models
 {
-    internal class StickerData
+    public class StickerData
     {
         public string ObjektNr { get; set; }
         public string Straße { get; set; }

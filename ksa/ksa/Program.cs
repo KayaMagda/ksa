@@ -18,7 +18,7 @@ internal class Program
     {
         DataAccess.CreateDatabase();
 
-        Console.WriteLine("Willkommen bei der ksa.exe.\nBitte verwenden Sie einen der folgenden Befehle:\n-n \n-csvimp \n-xmlimp \n-jsonimp \n");
+        Console.WriteLine("Willkommen bei der ksa.exe.\nBitte verwenden Sie einen der folgenden Befehle:\n-n \n-csvimp \n-xmlimp \n-jsonimp \n-etk");
         string command = args.Count() > 0 ? args[0] : Console.ReadLine();
 
         switch (command)
@@ -34,6 +34,9 @@ internal class Program
                 break;
             case "-jsonimp":
                 JsonImport();
+                break;
+            case "-etk":
+                GenerateEtiketten();
                 break;
             default:
                 Console.WriteLine("Unbekannter Befehl. Bekannte Befehle: -n, -csvimp, -xmlimp, -jsonimp");
@@ -197,6 +200,13 @@ internal class Program
             return objektToAdd;
         
 
+    }
+
+    static void GenerateEtiketten()
+    {
+        Console.WriteLine($"Alle PDF-Dateien werden im aktuellen Verzeichnis gespeichert. " +
+            $"\nEine PDF-Datei pro Onbjekt. " +
+            $"Der Dateiname ist die entsprechende Objektnummer.");
     }
 
 }
