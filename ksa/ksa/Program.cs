@@ -12,7 +12,7 @@ namespace ksa;
 
 internal class Program
 {
-    private static readonly string _directory = Directory.GetCurrentDirectory();
+    private static readonly string directory = Directory.GetCurrentDirectory();
 
     static void Main(string[] args)
     {
@@ -49,15 +49,93 @@ internal class Program
 
     static void CsvImport()
     {
-        List<string> filenames = new List<string>();
+        string[] filenames = Directory.GetFiles(directory, "*.csv");
         foreach (string filename in filenames)
         {
-            Console.WriteLine(filename + " erfolgreich importiert!");
+            try
+            {
+                Dictionary<long, List<Objekt>> kundenUndObjekte = new Dictionary<long, List<Objekt>>();
+
+                using (StreamReader sr = new StreamReader(filename))
+                {
+                    int counter = 0;
+                    string line;
+                    // Read and display lines from the file until the end of
+                    // the file is reached.
+                    while ((line = sr.ReadLine()) != null)
+                    {
+                        if (counter != 0)
+                        {
+                            string[] csv = line.Split(';');
+
+
+                            long kundenNr = long.Parse(csv[1]);
+                            string objektNr = csv[0];
+                            if (kundenUndObjekte.TryGetValue(kundenNr, out List<Objekt> kundenObjekte))
+                            {
+                                Objekt currentObjekt = kundenObjekte.Find((objekt) => objekt.Nr == objektNr);
+                                if (currentObjekt != null)
+                                {
+                                    CSVCreateAndAddObjectAbfallArt(csv, currentObjekt, objektNr);
+                                }
+                                else
+                                {
+                                    Objekt newObjekt = CSVCreateObject(csv, objektNr, kundenNr);
+                                    kundenObjekte.Add(newObjekt);
+                                    CSVCreateAndAddObjectAbfallArt(csv, newObjekt, newObjekt.Nr);
+                                }
+                            }
+
+                            else
+                            {
+                                Objekt objekt = CSVCreateObject(csv, objektNr, kundenNr);
+                                kundenUndObjekte[kundenNr] = new List<Objekt>() { objekt };
+                                CSVCreateAndAddObjectAbfallArt(csv, objekt, objektNr);
+                            }
+                        }
+
+                        counter++;
+                    }
+                }
+
+                DataAccess.InsertData(kundenUndObjekte);
+
+                string filenameWithoutExt = Path.GetFileName(filename);
+                Console.WriteLine(filenameWithoutExt + " erfolgreich importiert!");
+            }
+            catch
+            {
+            }
         }
     }
+
+    static void CSVCreateAndAddObjectAbfallArt(string[] csv, Objekt objektToAddTo, string objektNr)
+    {
+        ObjektAbfallArt currentObjektAbfallArt = new ObjektAbfallArt();
+        currentObjektAbfallArt.ObjNr = objektNr;
+        currentObjektAbfallArt.Abfallart = csv[6];
+        currentObjektAbfallArt.Volumen = int.Parse(csv[7]);
+        currentObjektAbfallArt.Anzahl = int.Parse(csv[8]);
+
+        objektToAddTo.ObjektAbfallArt.Add(currentObjektAbfallArt);
+    }
+
+    static Objekt CSVCreateObject(string[] csv, string objektNr, long kundenNr)
+    {
+        Objekt objectToAdd = new Objekt();
+        objectToAdd.Nr = objektNr;
+        objectToAdd.Kunde_Nr = kundenNr;
+        objectToAdd.Straße = csv[2];
+        objectToAdd.HausNr = int.Parse(csv[3]);
+        objectToAdd.PLZ = int.Parse(csv[4]);
+        objectToAdd.Ort = csv[5];
+
+        return objectToAdd;
+    }
+
     static void XmlImport()
     {
-        string[] filenames = Directory.GetFiles(_directory, "*.xml");
+        string[] filenames = Directory.GetFiles(directory, "*.xml");
         foreach (string filename in filenames)
         {
             XDocument xmlDoc = XDocument.Load(filename);
@@ -124,7 +202,7 @@ internal class Program
 
     static void JsonImport()
     {
-        string[] filenames = Directory.GetFiles(_directory, "*.json");
+        string[] filenames = Directory.GetFiles(directory, "*.json");
 
         foreach (string filename in filenames)
         {
@@ -198,8 +276,6 @@ internal class Program
             objektToAdd.Ort = (string)jsonArray[index]["obj_ort"];
 
             return objektToAdd;
-        
-
     }
 
     static void GenerateEtiketten()
