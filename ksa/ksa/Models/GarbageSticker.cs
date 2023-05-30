@@ -2,6 +2,7 @@
 {
     public class GarbageSticker
     {
+        public string ObjektNr { get; set; }
         public string Straße { get; set; }
         public int HausNr { get; set; }
         public int PLZ { get; set; }

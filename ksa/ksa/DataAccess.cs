@@ -1,4 +1,5 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 using System.Data.SQLite;
 using System.IO;
 using System.Linq;
@@ -138,9 +139,12 @@ namespace ksa
             command.ExecuteNonQuery();
         }
 
-        public List<StickerData> GetStickerData()
+        public static List<StickerData> GetStickerData()
         {
             List<StickerData> data = new List<StickerData>();
+
+            using SQLiteConnection connection = GetOpenConnection();
+            using SQLiteCommand command = connection.CreateCommand();
 
             string query = @"SELECT o.nr, 
                                     o.str, 
@@ -153,8 +157,22 @@ namespace ksa
                             FROM
                                 Objekt o
                             JOIN ObjektAbfallArt a ON o.nr = a.objekt_nr";
+
+            command.CommandText = query;
+
             return data;
         }
 
+        public static List<GarbageSticker> GetGarbageSticker()
+        {
+            List<GarbageSticker> data = new List<GarbageSticker>();
+
+            GarbageSticker a = new GarbageSticker() {ObjektNr = "2.2345.21.234", Straße = "AWeg", HausNr = 1, PLZ = 11111, Ort = "Astadt", Tonnennummer = 6456785, Abfallsorte = "Bio", Volumen = 120};
+            GarbageSticker b = new GarbageSticker() { ObjektNr = "2.2345.21.234", Straße = "AWeg", HausNr = 1, PLZ = 11111, Ort = "Astadt", Tonnennummer = 6456786, Abfallsorte = "Papier", Volumen = 240 };
+            data.Add(a);
+            data.Add(b);
+
+            return data;
+        }
     }
 }

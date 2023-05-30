@@ -1,9 +1,13 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Runtime.InteropServices;
 using System.Xml.Linq;
+using iText.Forms;
+using iText.Kernel.Pdf;
+using iText.Layout.Element;
 using ksa.Models;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
@@ -280,9 +284,77 @@ internal class Program
 
     static void GenerateEtiketten()
     {
-        Console.WriteLine($"Alle PDF-Dateien werden im aktuellen Verzeichnis gespeichert. " +
-            $"\nEine PDF-Datei pro Onbjekt. " +
-            $"Der Dateiname ist die entsprechende Objektnummer.");
+        try
+        {
+            List<GarbageSticker> data = DataAccess.GetGarbageSticker();
+
+            if (data.Count != 0)
+            {
+                bool sameDoc = true;
+
+                for (int i = 0; i < data.Count; i++)
+                {
+                    string outputPdfFile = data[i].ObjektNr + ".pdf";
+
+                    using (PdfWriter writer = new PdfWriter(outputPdfFile))
+                    {
+                        using (PdfDocument pdf = new PdfDocument(writer))
+                        {
+                            iText.Layout.Document doc = new iText.Layout.Document(pdf);
+
+                            while (sameDoc)
+                            {
+                                doc.Add(new Paragraph($"Objekt-Nr: {data[i].ObjektNr}"));
+                                doc.Add(new Paragraph($"Straße: {data[i].Straße}"));
+                                doc.Add(new Paragraph($"Nr: {data[i].HausNr}"));
+                                doc.Add(new Paragraph($"PLZ: {data[i].PLZ}"));
+                                doc.Add(new Paragraph($"Ort: {data[i].Ort}"));
+
+                                doc.Add(new Paragraph($""));
+
+                                doc.Add(new Paragraph($"Tonnen-Nr: {data[i].Tonnennummer}")); // todo
+                                doc.Add(new Paragraph($"Abfallsorte: {data[i].Abfallsorte}"));
+                                doc.Add(new Paragraph($"Volumen: {data[i].Volumen}"));
+
+                                //barcode
+                                iText.Barcodes.BarcodeInter25 bar = new iText.Barcodes.BarcodeInter25(pdf);
+                                bar.SetCode(data[i].Tonnennummer.ToString());
+
+                                //Here's how to add barcode to PDF with IText7
+                                //var barcodeImg = new Image(bar.CreateFormXObject(pdf));
+                                //doc.Add(barcodeImg);
+
+                                if (data[i+1].ObjektNr != data[i].ObjektNr || i >= data.Count)
+                                {
+                                    sameDoc = false;
+                                }
+
+                                else
+                                {
+                                    i++;
+
+                                    doc.Add(new Paragraph($""));
+                                }
+                            }
+                        }
+                    }
+                    sameDoc = true;
+                }
+
+                Console.WriteLine($"Alle PDF-Dateien werden im aktuellen Verzeichnis gespeichert. " +
+                $"\nEine PDF-Datei pro Objekt. " +
+                $"Der Dateiname ist die entsprechende Objektnummer.");
+            }
+
+            else
+            {
+                throw new Exception("Keine Daten"); // todo
+            }
+        }
+        catch (Exception)
+        {
+            throw;
+        }
     }
 
 }
