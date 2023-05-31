@@ -8,9 +8,15 @@ using System.Xml.Linq;
 using iText.Forms;
 using iText.Kernel.Pdf;
 using iText.Layout.Element;
+using iText.Barcodes;
+using iText.Kernel.Colors;
+using iText.Kernel.Pdf.Xobject;
+using iText.Layout;
 using ksa.Models;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
+using iText.Layout.Properties;
+using iText.Layout.Borders;
 
 namespace ksa;
 
@@ -53,63 +59,80 @@ internal class Program
 
     static void CsvImport()
     {
-        string[] filenames = Directory.GetFiles(directory, "*.csv");
-        foreach (string filename in filenames)
+        try
         {
-            try
+            string[] filenames = Directory.GetFiles(directory, "*.csv");
+
+            if (filenames.Length <= 0)
             {
-                Dictionary<long, List<Objekt>> kundenUndObjekte = new Dictionary<long, List<Objekt>>();
+                throw new Exception("Keine Datein mit der Endung '.csv' gefunden. Bitte überprüfen Sie, ob die Datein sich in demselben Ordner wie die EXE befinden.");
+            }
 
-                using (StreamReader sr = new StreamReader(filename))
+            foreach (string filename in filenames)
+            {
+                try
                 {
-                    int counter = 0;
-                    string line;
-                    // Read and display lines from the file until the end of
-                    // the file is reached.
-                    while ((line = sr.ReadLine()) != null)
+                    Dictionary<long, List<Objekt>> kundenUndObjekte = new Dictionary<long, List<Objekt>>();
+
+                    using (StreamReader sr = new StreamReader(filename))
                     {
-                        if (counter != 0)
+                        int counter = 0;
+                        string line;
+
+                        // Read and display lines from the file until the end of
+                        // the file is reached.
+                        while ((line = sr.ReadLine()) != null)
                         {
-                            string[] csv = line.Split(';');
-
-
-                            long kundenNr = long.Parse(csv[1]);
-                            string objektNr = csv[0];
-                            if (kundenUndObjekte.TryGetValue(kundenNr, out List<Objekt> kundenObjekte))
+                            if (counter != 0)
                             {
-                                Objekt currentObjekt = kundenObjekte.Find((objekt) => objekt.Nr == objektNr);
-                                if (currentObjekt != null)
+                                string[] csv = line.Split(';');
+
+
+                                long kundenNr = long.Parse(csv[1]);
+                                string objektNr = csv[0];
+                                if (kundenUndObjekte.TryGetValue(kundenNr, out List<Objekt> kundenObjekte))
                                 {
-                                    CSVCreateAndAddObjectAbfallArt(csv, currentObjekt, objektNr);
+                                    Objekt currentObjekt = kundenObjekte.Find((objekt) => objekt.Nr == objektNr);
+                                    if (currentObjekt != null)
+                                    {
+                                        CSVCreateAndAddObjectAbfallArt(csv, currentObjekt, objektNr);
+                                    }
+                                    else
+                                    {
+                                        Objekt newObjekt = CSVCreateObject(csv, objektNr, kundenNr);
+                                        kundenObjekte.Add(newObjekt);
+                                        CSVCreateAndAddObjectAbfallArt(csv, newObjekt, newObjekt.Nr);
+                                    }
                                 }
+
                                 else
                                 {
-                                    Objekt newObjekt = CSVCreateObject(csv, objektNr, kundenNr);
-                                    kundenObjekte.Add(newObjekt);
-                                    CSVCreateAndAddObjectAbfallArt(csv, newObjekt, newObjekt.Nr);
+                                    Objekt objekt = CSVCreateObject(csv, objektNr, kundenNr);
+                                    kundenUndObjekte[kundenNr] = new List<Objekt>() { objekt };
+                                    CSVCreateAndAddObjectAbfallArt(csv, objekt, objektNr);
                                 }
                             }
 
-                            else
-                            {
-                                Objekt objekt = CSVCreateObject(csv, objektNr, kundenNr);
-                                kundenUndObjekte[kundenNr] = new List<Objekt>() { objekt };
-                                CSVCreateAndAddObjectAbfallArt(csv, objekt, objektNr);
-                            }
+                            counter++;
                         }
-
-                        counter++;
                     }
+
+                    DataAccess.InsertData(kundenUndObjekte);
+
+                    string filenameWithoutExt = Path.GetFileName(filename);
+                    Console.WriteLine(filenameWithoutExt + " erfolgreich importiert!");
                 }
 
-                DataAccess.InsertData(kundenUndObjekte);
+                catch
+                {
+                    throw new Exception($"Beim Einlesen der Datei {filename} ist ein Fehler aufgetreten.");
+                }
+            }
+        }
 
-                string filenameWithoutExt = Path.GetFileName(filename);
-                Console.WriteLine(filenameWithoutExt + " erfolgreich importiert!");
-            }
-            catch
-            {
-            }
+        catch (Exception ex)
+        {
+            Console.WriteLine(ex.Message);
         }
     }
 
@@ -139,43 +162,67 @@ internal class Program
 
     static void XmlImport()
     {
-        string[] filenames = Directory.GetFiles(directory, "*.xml");
-        foreach (string filename in filenames)
+        try
         {
-            XDocument xmlDoc = XDocument.Load(filename);
+            string[] filenames = Directory.GetFiles(directory, "*.xml");
 
-
-            Dictionary<long, List<Objekt>> kundenUndObjekte = new Dictionary<long, List<Objekt>>();
-
-            foreach (XElement element in xmlDoc.Descendants("entry"))
+            if (filenames.Length <= 0)
             {
-                long kundenNr = long.Parse(element.Element("obj_kunde_nr").Value);
-                string objektNr = element.Element("obj_nr").Value;
-                if (kundenUndObjekte.TryGetValue(kundenNr, out List<Objekt> kundenObjekte))
-                {
-                    Objekt currentObjekt = kundenObjekte.Find((objekt) => objekt.Nr == objektNr);
-                    if (currentObjekt != null)
-                    {
-                        CreateAndAddObjektAbfallArt(element, currentObjekt, objektNr);
-                    }
-                    else
-                    {
-                        Objekt newObjekt = CreateObjekt(element, objektNr, kundenNr);
-                        kundenObjekte.Add(newObjekt);
-                        CreateAndAddObjektAbfallArt(element, newObjekt, newObjekt.Nr);
-                    }
-
-                }
-                else
-                {
-                    Objekt objekt = CreateObjekt(element, objektNr, kundenNr);
-                    kundenUndObjekte[kundenNr] = new List<Objekt>() { objekt };
-                    CreateAndAddObjektAbfallArt(element, objekt, objektNr);
-                }
-
+                throw new Exception("Keine Datein mit der Endung '.xml' gefunden. Bitte überprüfen Sie, ob die Datein sich in demselben Ordner wie die EXE befinden.");
             }
-            DataAccess.InsertData(kundenUndObjekte);
-            Console.WriteLine(filename + " erfolgreich importiert!");
+
+            foreach (string filename in filenames)
+            {
+                try
+                {
+                    XDocument xmlDoc = XDocument.Load(filename);
+
+
+                    Dictionary<long, List<Objekt>> kundenUndObjekte = new Dictionary<long, List<Objekt>>();
+
+                    foreach (XElement element in xmlDoc.Descendants("entry"))
+                    {
+                        long kundenNr = long.Parse(element.Element("obj_kunde_nr").Value);
+                        string objektNr = element.Element("obj_nr").Value;
+                        if (kundenUndObjekte.TryGetValue(kundenNr, out List<Objekt> kundenObjekte))
+                        {
+                            Objekt currentObjekt = kundenObjekte.Find((objekt) => objekt.Nr == objektNr);
+                            if (currentObjekt != null)
+                            {
+                                CreateAndAddObjektAbfallArt(element, currentObjekt, objektNr);
+                            }
+                            else
+                            {
+                                Objekt newObjekt = CreateObjekt(element, objektNr, kundenNr);
+                                kundenObjekte.Add(newObjekt);
+                                CreateAndAddObjektAbfallArt(element, newObjekt, newObjekt.Nr);
+                            }
+
+                        }
+                        else
+                        {
+                            Objekt objekt = CreateObjekt(element, objektNr, kundenNr);
+                            kundenUndObjekte[kundenNr] = new List<Objekt>() { objekt };
+                            CreateAndAddObjektAbfallArt(element, objekt, objektNr);
+                        }
+
+                    }
+                    DataAccess.InsertData(kundenUndObjekte);
+
+                    string filenameWithoutExt = Path.GetFileName(filename);
+                    Console.WriteLine(filenameWithoutExt + " erfolgreich importiert!");
+                }
+
+                catch
+                {
+                    throw new Exception($"Beim Einlesen der Datei {filename} ist ein Fehler aufgetreten.");
+                }
+            }
+        }
+
+        catch (Exception e)
+        {
+            Console.WriteLine(e.Message);
         }
     }
 
@@ -206,54 +253,75 @@ internal class Program
 
     static void JsonImport()
     {
-        string[] filenames = Directory.GetFiles(directory, "*.json");
-
-        foreach (string filename in filenames)
+        try
         {
-            StreamReader streamReader = new StreamReader(filename);
-            string jsonString = streamReader.ReadToEnd();
+            string[] filenames = Directory.GetFiles(directory, "*.json");
 
-            Dictionary<long, List<Objekt>> kundenUndObjekte = new Dictionary<long, List<Objekt>>();            
-
-            var jsonArray = JArray.Parse(jsonString);
-
-            int index = 0;
-
-            foreach (var data in jsonArray)
+            if (filenames.Length <= 0)
             {
-                long kundenNr = (long)data["obj_kunde_nr"];
-                string objektNr = (string)data["obj_nr"];  
-                
-
-                if(kundenUndObjekte.TryGetValue(kundenNr, out List<Objekt> kundenObjekte))
-                {
-                    Objekt currentObjekt = kundenObjekte.Find((objekt) => objekt.Nr == objektNr);
-                    if (currentObjekt != null)
-                    {                        
-                        JSONCreatandAddAbfallart(jsonArray, currentObjekt, objektNr, index);
-                    }
-                    else
-                    {
-                        Objekt newObjekt = JSONCreateObjekt(jsonArray, objektNr, kundenNr, index);
-                        kundenObjekte.Add(newObjekt);
-                        JSONCreatandAddAbfallart(jsonArray, newObjekt, newObjekt.Nr, index);
-                    }
-
-                }
-                else
-                {
-                    Objekt objekt = JSONCreateObjekt(jsonArray, objektNr, kundenNr, index);
-                    kundenUndObjekte[kundenNr] = new List<Objekt>() { objekt };
-                    JSONCreatandAddAbfallart(jsonArray, objekt, objektNr, index);
-                }
-
-                index++;
+                throw new Exception("Keine Datein mit der Endung '.json' gefunden. Bitte überprüfen Sie, ob die Datein sich in demselben Ordner wie die EXE befinden.");
             }
-            DataAccess.InsertData(kundenUndObjekte);
-            string filenameWithoutExt = Path.GetFileName(filename);
-            Console.WriteLine(filenameWithoutExt + " erfolgreich importiert!");
+
+            foreach (string filename in filenames)
+            {
+                try
+                {
+                    StreamReader streamReader = new StreamReader(filename);
+                    string jsonString = streamReader.ReadToEnd();
+
+                    Dictionary<long, List<Objekt>> kundenUndObjekte = new Dictionary<long, List<Objekt>>();
+
+                    var jsonArray = JArray.Parse(jsonString);
+
+                    int index = 0;
+
+                    foreach (var data in jsonArray)
+                    {
+                        long kundenNr = (long)data["obj_kunde_nr"];
+                        string objektNr = (string)data["obj_nr"];
+
+
+                        if (kundenUndObjekte.TryGetValue(kundenNr, out List<Objekt> kundenObjekte))
+                        {
+                            Objekt currentObjekt = kundenObjekte.Find((objekt) => objekt.Nr == objektNr);
+                            if (currentObjekt != null)
+                            {
+                                JSONCreatandAddAbfallart(jsonArray, currentObjekt, objektNr, index);
+                            }
+                            else
+                            {
+                                Objekt newObjekt = JSONCreateObjekt(jsonArray, objektNr, kundenNr, index);
+                                kundenObjekte.Add(newObjekt);
+                                JSONCreatandAddAbfallart(jsonArray, newObjekt, newObjekt.Nr, index);
+                            }
+
+                        }
+                        else
+                        {
+                            Objekt objekt = JSONCreateObjekt(jsonArray, objektNr, kundenNr, index);
+                            kundenUndObjekte[kundenNr] = new List<Objekt>() { objekt };
+                            JSONCreatandAddAbfallart(jsonArray, objekt, objektNr, index);
+                        }
+
+                        index++;
+                    }
+                    DataAccess.InsertData(kundenUndObjekte);
+
+                    string filenameWithoutExt = Path.GetFileName(filename);
+                    Console.WriteLine(filenameWithoutExt + " erfolgreich importiert!");
+                }
+
+                catch
+                {
+                    throw new Exception($"Beim Einlesen der Datei {filename} ist ein Fehler aufgetreten.");
+                }
+            }
         }
 
+        catch (Exception e)
+        {
+            Console.WriteLine(e.Message);
+        }
     }    
 
     static void JSONCreatandAddAbfallart(JArray jsonArray, Objekt objektToAddTo, string objektNr, int index)
@@ -294,46 +362,75 @@ internal class Program
 
                 for (int i = 0; i < data.Count; i++)
                 {
+                    int count = 1;
+
                     string outputPdfFile = data[i].ObjektNr + ".pdf";
 
                     using (PdfWriter writer = new PdfWriter(outputPdfFile))
                     {
                         using (PdfDocument pdf = new PdfDocument(writer))
                         {
-                            iText.Layout.Document doc = new iText.Layout.Document(pdf);
+                            Document doc = new Document(pdf);
+                            doc.SetMargins(30, 30, 30, 30);
 
                             while (sameDoc)
                             {
-                                doc.Add(new Paragraph($"Objekt-Nr: {data[i].ObjektNr}"));
-                                doc.Add(new Paragraph($"Straße: {data[i].Straße}"));
-                                doc.Add(new Paragraph($"Nr: {data[i].HausNr}"));
-                                doc.Add(new Paragraph($"PLZ: {data[i].PLZ}"));
-                                doc.Add(new Paragraph($"Ort: {data[i].Ort}"));
+                                Table table = new Table(new float[2]).UseAllAvailableWidth();
+                                table.SetMarginTop(0);
+                                table.SetMarginBottom(0);
 
-                                doc.Add(new Paragraph($""));
+                                table.AddCell(new Paragraph($"Objekt-Nr: {data[i].ObjektNr}"));
 
-                                doc.Add(new Paragraph($"Tonnen-Nr: {data[i].Tonnennummer}")); // todo
-                                doc.Add(new Paragraph($"Abfallsorte: {data[i].Abfallsorte}"));
-                                doc.Add(new Paragraph($"Volumen: {data[i].Volumen}"));
+                                // Barcode INTER25 type
+                                BarcodeInter25 code25 = new BarcodeInter25(pdf); // todo Barcode Type
+                                code25.SetCode(data[i].Tonnennummer.ToString());
+                                code25.SetGenerateChecksum(true);
+                                code25.FitWidth(135);
+                                code25.SetBarHeight(50);
+                                code25.SetSize(13.5f);
+                                code25.SetBaseline(12f);
+                                Cell cell = new Cell(8, 1).Add(new Image(code25.CreateFormXObject(pdf)));
+                                cell.SetHorizontalAlignment(HorizontalAlignment.RIGHT);
+                                cell.SetVerticalAlignment(VerticalAlignment.TOP);
+                                cell.SetPadding(5);
+                                table.AddCell(cell);
 
-                                //barcode
-                                iText.Barcodes.BarcodeInter25 bar = new iText.Barcodes.BarcodeInter25(pdf);
-                                bar.SetCode(data[i].Tonnennummer.ToString());
+                                table.AddCell(new Paragraph($"Straße: {data[i].Straße}"));
+                                table.AddCell(new Paragraph($"Nr: {data[i].HausNr}"));
+                                table.AddCell(new Paragraph($"PLZ: {data[i].PLZ}"));
+                                table.AddCell(new Paragraph($"Ort: {data[i].Ort}"));
 
-                                //Here's how to add barcode to PDF with IText7
-                                //var barcodeImg = new Image(bar.CreateFormXObject(pdf));
-                                //doc.Add(barcodeImg);
+                                table.AddCell(new Paragraph($"\n"));
 
-                                if (data[i+1].ObjektNr != data[i].ObjektNr || i >= data.Count)
+                                table.AddCell(new Paragraph($"Tonnen-Nr: {data[i].Tonnennummer}"));
+                                table.AddCell(new Paragraph($"Abfallsorte: {data[i].Abfallsorte}"));
+                                table.AddCell(new Paragraph($"Volumen: {data[i].Volumen}"));
+
+
+                                foreach (Cell c in table.GetChildren())
                                 {
-                                    sameDoc = false;
+                                    c.SetBorder(Border.NO_BORDER);
+                                }
+
+                                doc.Add(table);
+
+
+                                if (i < data.Count - 1)
+                                {
+                                    if (data[i + 1].ObjektNr != data[i].ObjektNr)
+                                    {
+                                        LastSticker(ref doc, ref sameDoc);
+                                    }
+
+                                    else
+                                    {
+                                        NextSticker(ref doc, ref i, ref count);
+                                    }
                                 }
 
                                 else
                                 {
-                                    i++;
-
-                                    doc.Add(new Paragraph($""));
+                                    LastSticker(ref doc, ref sameDoc);
                                 }
                             }
                         }
@@ -348,14 +445,39 @@ internal class Program
 
             else
             {
-                throw new Exception("Keine Daten"); // todo
+                throw new Exception("Keine Daten vorhanden zum Erstellen der Etikette. Bitte lesen Sie zuerst welche ein.");
             }
         }
-        catch (Exception)
+        catch (Exception e)
         {
-            throw;
+            Console.WriteLine(e.Message);
         }
     }
 
+    private static void LastSticker(ref Document doc, ref bool sameDoc)
+    {
+        sameDoc = false;
+
+        doc.Close();
+    }
+
+    private static void NextSticker(ref Document doc, ref int i, ref int count)
+    {
+        i++;
+        
+        if (count != 3)
+        {
+            doc.Add(new Paragraph($"\n\n\n"));
+
+            count++;
+        }
+
+        else
+        {
+            doc.Add(new AreaBreak());
+
+            count = 1;
+        }
+    }
 }
 

@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Data.SQLite;
 using System.IO;
 using System.Linq;
+using System.Runtime.InteropServices.ComTypes;
 using System.Text;
 using ksa.Models;
 
@@ -139,7 +140,7 @@ namespace ksa
             command.ExecuteNonQuery();
         }
 
-        public static List<StickerData> GetStickerData()
+        private static List<StickerData> GetStickerData()
         {
             List<StickerData> data = new List<StickerData>();
 
@@ -159,6 +160,23 @@ namespace ksa
                             JOIN ObjektAbfallArt a ON o.nr = a.objekt_nr";
 
             command.CommandText = query;
+            using var rd = command.ExecuteReader();
+
+            while (rd.Read())
+            {
+                var d = new StickerData();
+
+                d.ObjektNr = rd.GetString(0);
+                d.Straße = rd.GetString(1);
+                d.HausNr = rd.GetInt32(2);
+                d.PLZ = rd.GetInt32(3);
+                d.Ort = rd.GetString(4);
+                d.Abfallsorte = rd.GetString(5);
+                d.Volumen = rd.GetInt32(6);
+                d.Anzahl = rd.GetInt32(7);
+
+                data.Add(d);
+            }
 
             return data;
         }
@@ -167,10 +185,28 @@ namespace ksa
         {
             List<GarbageSticker> data = new List<GarbageSticker>();
 
-            GarbageSticker a = new GarbageSticker() {ObjektNr = "2.2345.21.234", Straße = "AWeg", HausNr = 1, PLZ = 11111, Ort = "Astadt", Tonnennummer = 6456785, Abfallsorte = "Bio", Volumen = 120};
-            GarbageSticker b = new GarbageSticker() { ObjektNr = "2.2345.21.234", Straße = "AWeg", HausNr = 1, PLZ = 11111, Ort = "Astadt", Tonnennummer = 6456786, Abfallsorte = "Papier", Volumen = 240 };
-            data.Add(a);
-            data.Add(b);
+            List<StickerData> sticker = GetStickerData();
+
+            int tonnenNr = 6456785; // todo TonnenNr
+
+            foreach (var st in sticker)
+            {
+                for (int i = 0; i < st.Anzahl; i++)
+                {
+                    var g = new GarbageSticker();
+
+                    g.ObjektNr = st.ObjektNr;
+                    g.Straße = st.Straße;
+                    g.HausNr = st.HausNr;
+                    g.PLZ = st.PLZ;
+                    g.Ort = st.Ort;
+                    g.Tonnennummer = tonnenNr++;
+                    g.Abfallsorte = st.Abfallsorte;
+                    g.Volumen = st.Volumen;
+
+                    data.Add(g);
+                }
+            }
 
             return data;
         }
