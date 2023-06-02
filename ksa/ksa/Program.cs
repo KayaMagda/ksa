@@ -1,22 +1,16 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Diagnostics;
 using System.IO;
 using System.Linq;
-using System.Runtime.InteropServices;
 using System.Xml.Linq;
-using iText.Forms;
-using iText.Kernel.Pdf;
-using iText.Layout.Element;
 using iText.Barcodes;
-using iText.Kernel.Colors;
-using iText.Kernel.Pdf.Xobject;
+using iText.Kernel.Pdf;
 using iText.Layout;
-using ksa.Models;
-using Newtonsoft.Json;
-using Newtonsoft.Json.Linq;
-using iText.Layout.Properties;
 using iText.Layout.Borders;
+using iText.Layout.Element;
+using iText.Layout.Properties;
+using ksa.Models;
+using Newtonsoft.Json.Linq;
 
 namespace ksa;
 
@@ -176,43 +170,45 @@ internal class Program
                 try
                 {
                     XDocument xmlDoc = XDocument.Load(filename);
+                    var einträge = xmlDoc.Element("entries");
 
-
-                    Dictionary<long, List<Objekt>> kundenUndObjekte = new Dictionary<long, List<Objekt>>();
-
-                    foreach (XElement element in xmlDoc.Descendants("entry"))
+                    if (einträge != null)
                     {
-                        long kundenNr = long.Parse(element.Element("obj_kunde_nr").Value);
-                        string objektNr = element.Element("obj_nr").Value;
-                        if (kundenUndObjekte.TryGetValue(kundenNr, out List<Objekt> kundenObjekte))
+                        Dictionary<long, List<Objekt>> kundenUndObjekte = new Dictionary<long, List<Objekt>>();
+
+                        foreach (XElement element in xmlDoc.Descendants("entry"))
                         {
-                            Objekt currentObjekt = kundenObjekte.Find((objekt) => objekt.Nr == objektNr);
-                            if (currentObjekt != null)
+                            long kundenNr = long.Parse(element.Element("obj_kunde_nr").Value);
+                            string objektNr = element.Element("obj_nr").Value;
+                            if (kundenUndObjekte.TryGetValue(kundenNr, out List<Objekt> kundenObjekte))
                             {
-                                CreateAndAddObjektAbfallArt(element, currentObjekt, objektNr);
+                                Objekt currentObjekt = kundenObjekte.Find((objekt) => objekt.Nr == objektNr);
+                                if (currentObjekt != null)
+                                {
+                                    CreateAndAddObjektAbfallArt(element, currentObjekt, objektNr);
+                                }
+                                else
+                                {
+                                    Objekt newObjekt = CreateObjekt(element, objektNr, kundenNr);
+                                    kundenObjekte.Add(newObjekt);
+                                    CreateAndAddObjektAbfallArt(element, newObjekt, newObjekt.Nr);
+                                }
+
                             }
                             else
                             {
-                                Objekt newObjekt = CreateObjekt(element, objektNr, kundenNr);
-                                kundenObjekte.Add(newObjekt);
-                                CreateAndAddObjektAbfallArt(element, newObjekt, newObjekt.Nr);
+                                Objekt objekt = CreateObjekt(element, objektNr, kundenNr);
+                                kundenUndObjekte[kundenNr] = new List<Objekt>() { objekt };
+                                CreateAndAddObjektAbfallArt(element, objekt, objektNr);
                             }
 
                         }
-                        else
-                        {
-                            Objekt objekt = CreateObjekt(element, objektNr, kundenNr);
-                            kundenUndObjekte[kundenNr] = new List<Objekt>() { objekt };
-                            CreateAndAddObjektAbfallArt(element, objekt, objektNr);
-                        }
+                        DataAccess.InsertData(kundenUndObjekte);
 
+                        string filenameWithoutExt = Path.GetFileName(filename);
+                        Console.WriteLine(filenameWithoutExt + " erfolgreich importiert!");
                     }
-                    DataAccess.InsertData(kundenUndObjekte);
-
-                    string filenameWithoutExt = Path.GetFileName(filename);
-                    Console.WriteLine(filenameWithoutExt + " erfolgreich importiert!");
                 }
-
                 catch
                 {
                     throw new Exception($"Beim Einlesen der Datei {filename} ist ein Fehler aufgetreten.");
@@ -382,7 +378,7 @@ internal class Program
                                 table.AddCell(new Paragraph($"Objekt-Nr: {data[i].ObjektNr}"));
 
                                 // Barcode INTER25 type
-                                BarcodeInter25 code25 = new BarcodeInter25(pdf); // todo Barcode Type
+                                BarcodeInter25 code25 = new BarcodeInter25(pdf);
                                 code25.SetCode(data[i].Tonnennummer.ToString());
                                 code25.SetGenerateChecksum(true);
                                 code25.FitWidth(135);
