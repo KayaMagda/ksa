@@ -5,6 +5,7 @@ using System.Linq;
 using System.Xml.Linq;
 using iText.Barcodes;
 using iText.Kernel.Pdf;
+using iText.Kernel.Pdf.Xobject;
 using iText.Layout;
 using iText.Layout.Borders;
 using iText.Layout.Element;
@@ -377,17 +378,15 @@ internal class Program
 
                                 table.AddCell(new Paragraph($"Objekt-Nr: {data[i].ObjektNr}"));
 
-                                // Barcode INTER25 type
-                                BarcodeInter25 code25 = new BarcodeInter25(pdf);
-                                code25.SetCode(data[i].Tonnennummer.ToString());
-                                code25.SetGenerateChecksum(true);
-                                code25.FitWidth(135);
-                                code25.SetBarHeight(50);
-                                code25.SetSize(13.5f);
-                                code25.SetBaseline(12f);
-                                Cell cell = new Cell(8, 1).Add(new Image(code25.CreateFormXObject(pdf)));
-                                cell.SetHorizontalAlignment(HorizontalAlignment.RIGHT);
-                                cell.SetVerticalAlignment(VerticalAlignment.TOP);
+                                // Barcode Code39 type
+                                Barcode39 code39 = new Barcode39(pdf);
+                                code39.SetCode(data[i].Tonnennummer.ToString());
+                                code39.SetStartStopText(false);
+                                code39.FitWidth(135);
+                                code39.SetBarHeight(50);
+                                code39.SetSize(13.5f);
+                                code39.SetBaseline(12f);
+                                Cell cell = new Cell(8, 1).Add(new Image(code39.CreateFormXObject(pdf)));
                                 cell.SetPadding(5);
                                 table.AddCell(cell);
 
