@@ -23,7 +23,7 @@ internal class Program
     {
         DataAccess.CreateDatabase();
 
-        Console.WriteLine("Willkommen bei der ksa.exe.\nBitte verwenden Sie einen der folgenden Befehle:\n-n \n-csvimp \n-xmlimp \n-jsonimp \n-etk");
+        //Console.WriteLine("Willkommen bei der ksa.exe.\nBitte verwenden Sie einen der folgenden Befehle:\n-n \n-csvimp \n-xmlimp \n-jsonimp \n-etk");
         string command = args.Count() > 0 ? args[0] : Console.ReadLine();
 
         switch (command)
